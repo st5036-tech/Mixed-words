@@ -1,0 +1,1394 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WORD SHUFFLE ARENA</title>
+    <!-- Tailwind CSS for UI Layout -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            cyan: '#06b6d4',
+                            teal: '#14b8a6',
+                            purple: '#8b5cf6',
+                            orange: '#f97316',
+                            yellow: '#f59e0b',
+                            pink: '#ec4899',
+                            bg: '#f0f9ff'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                        display: ['Fredoka', 'Inter', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f9ff;
+            user-select: none;
+            overflow-x: hidden;
+        }
+        .font-display {
+            font-family: 'Fredoka', sans-serif;
+        }
+        /* Custom Arcade Shadows and Buttons */
+        .arcade-card {
+            background: #ffffff;
+            border: 4px solid #0284c7;
+            box-shadow: 0 8px 0 0 #0369a1, 0 15px 25px rgba(0,0,0,0.1);
+            border-radius: 1.5rem;
+        }
+        .arcade-btn {
+            transition: all 0.1s ease;
+            box-shadow: 0 5px 0 0 rgba(0,0,0,0.2);
+            position: relative;
+            top: 0;
+        }
+        .arcade-btn:active {
+            top: 5px;
+            box-shadow: 0 0 0 0 rgba(0,0,0,0.2);
+        }
+        /* Floating Tile Styling */
+        .word-tile {
+            position: absolute;
+            cursor: grab;
+            transition: transform 0.15s ease, box-shadow 0.15s ease, background-color 0.2s ease;
+            z-index: 10;
+            touch-action: none;
+            border: 3px solid #64748b;
+        }
+        .word-tile:hover {
+            transform: scale(1.06);
+            z-index: 30;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.15);
+        }
+        .word-tile:active, .word-tile.dragging {
+            cursor: grabbing;
+            transform: scale(1.1);
+            z-index: 50;
+            border-color: #0284c7;
+            box-shadow: 0 15px 30px rgba(2, 132, 199, 0.3);
+        }
+        .word-tile.selected-click {
+            border-color: #f59e0b !important;
+            background-color: #fef3c7 !important;
+            transform: scale(1.12);
+            box-shadow: 0 0 0 4px #fbbf24, 0 12px 25px rgba(245, 158, 11, 0.4);
+            animation: pulse-ring 1.2s infinite;
+            z-index: 40;
+        }
+
+        @keyframes pulse-ring {
+            0% { box-shadow: 0 0 0 0px rgba(245, 158, 11, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(245, 158, 11, 0); }
+            100% { box-shadow: 0 0 0 0px rgba(245, 158, 11, 0); }
+        }
+
+        /* Drop Zone Styles */
+        .drop-zone {
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .drop-zone.drag-over {
+            transform: scale(1.02);
+            box-shadow: 0 0 0 6px rgba(14, 165, 233, 0.5);
+        }
+        
+        /* Shimmer effect for correct tiles */
+        .correct-tile {
+            animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        @keyframes popIn {
+            0% { transform: scale(0.5); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        /* Arena background grid */
+        .arena-grid {
+            background-image: radial-gradient(#cbd5e1 1.5px, transparent 1.5px);
+            background-size: 24px 24px;
+        }
+
+        /* Custom scrollbars */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #94a3b8;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #64748b;
+        }
+    </style>
+</head>
+<body class="min-h-screen text-slate-800 flex flex-col justify-between">
+
+    <!-- TOP HEADER / NAVBAR -->
+    <header class="bg-gradient-to-r from-cyan-600 via-teal-500 to-indigo-600 text-white shadow-lg p-3 sm:p-4 sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto flex flex-wrap justify-between items-center gap-2">
+            <div class="flex items-center space-x-3">
+                <div class="bg-yellow-400 text-slate-900 font-display font-black text-2xl px-3 py-1 rounded-xl shadow-md rotate-[-2deg]">
+                    WSA
+                </div>
+                <div>
+                    <h1 class="font-display text-xl sm:text-2xl font-bold tracking-wide leading-none">WORD SHUFFLE ARENA</h1>
+                    <p class="text-xs text-cyan-100 font-medium hidden sm:block">Interactive Classroom Classification Challenge</p>
+                </div>
+            </div>
+
+            <div class="flex items-center space-x-2 sm:space-x-3">
+                <!-- Sound Toggle -->
+                <button id="btn-sound" onclick="toggleSound()" class="arcade-btn bg-white/20 hover:bg-white/30 text-white font-semibold py-1.5 px-3 rounded-lg text-sm flex items-center gap-1.5 backdrop-blur-sm">
+                    <span id="sound-icon">🔊</span>
+                    <span id="sound-text" class="hidden md:inline">Sound: ON</span>
+                </button>
+
+                <!-- Navigation buttons (Dynamic depending on mode) -->
+                <button id="btn-nav-setup" onclick="switchView('setup')" class="arcade-btn bg-yellow-400 hover:bg-yellow-300 text-slate-900 font-bold py-1.5 px-4 rounded-lg text-sm flex items-center gap-1 shadow">
+                    ⚙️ <span class="hidden sm:inline">Setup / Edit</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- MAIN CONTAINER -->
+    <main class="max-w-7xl mx-auto w-full p-2 sm:p-4 flex-grow flex flex-col justify-center">
+
+        <!-- ========================================== -->
+        <!-- VIEW 1: TEACHER SETUP SCREEN               -->
+        <!-- ========================================== -->
+        <section id="view-setup" class="space-y-6 max-w-5xl mx-auto w-full py-2">
+            <div class="bg-white rounded-3xl p-5 sm:p-8 border-4 border-cyan-500 shadow-xl space-y-6">
+                
+                <div class="border-b-2 border-slate-100 pb-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                    <div>
+                        <h2 class="font-display text-2xl sm:text-3xl font-extrabold text-slate-800 flex items-center gap-2">
+                            <span>🎮</span> Game Setup & Customization
+                        </h2>
+                        <p class="text-slate-500 text-sm mt-1">Configure categories, word lists, teams, and timer before starting.</p>
+                    </div>
+                    
+                    <!-- Presets & Quick Controls -->
+                    <div class="flex flex-wrap gap-2">
+                        <button onclick="loadDefaultPreset()" class="arcade-btn bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold py-2 px-3 rounded-xl border border-slate-300">
+                            🔄 Load Example Preset
+                        </button>
+                        <button onclick="saveCurrentToLocalStorage()" class="arcade-btn bg-teal-500 hover:bg-teal-400 text-white text-xs font-bold py-2 px-3 rounded-xl">
+                            💾 Save Custom Preset
+                        </button>
+                        <button onclick="clearCustomData()" class="arcade-btn bg-rose-100 hover:bg-rose-200 text-rose-700 text-xs font-bold py-2 px-3 rounded-xl">
+                            🗑️ Reset
+                        </button>
+                    </div>
+                </div>
+
+                <!-- CATEGORIES & WORDS INPUT GRID -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- CATEGORY A BOX -->
+                    <div class="bg-cyan-50/70 rounded-2xl p-4 sm:p-5 border-2 border-cyan-300 flex flex-col space-y-3">
+                        <div class="flex items-center gap-2">
+                            <span class="w-4 h-4 rounded-full bg-cyan-500 inline-block"></span>
+                            <label class="font-display text-lg font-bold text-cyan-900">Category A Title</label>
+                        </div>
+                        <input type="text" id="catA-name" value="AFFIRMATIVE IMPERATIVES" placeholder="e.g. Affirmative Imperatives" 
+                            class="w-full px-4 py-2.5 rounded-xl border-2 border-cyan-300 font-bold text-cyan-900 focus:outline-none focus:border-cyan-500 shadow-sm bg-white">
+                        
+                        <label class="text-xs font-bold text-cyan-800 uppercase tracking-wider">Word List (One phrase/word per line or comma-separated)</label>
+                        <textarea id="catA-words" rows="6" 
+                            class="w-full p-3 rounded-xl border-2 border-cyan-200 focus:outline-none focus:border-cyan-500 text-sm font-medium shadow-inner bg-white resize-none"
+                            placeholder="Open the door&#10;Stand up&#10;Listen carefully&#10;Turn left">Open the door
+Stand up
+Listen carefully
+Turn left
+Speak clearly
+Be quiet
+Take notes
+Sit down</textarea>
+                        <div class="text-right text-xs text-cyan-600 font-semibold" id="catA-count">8 words</div>
+                    </div>
+
+                    <!-- CATEGORY B BOX -->
+                    <div class="bg-purple-50/70 rounded-2xl p-4 sm:p-5 border-2 border-purple-300 flex flex-col space-y-3">
+                        <div class="flex items-center gap-2">
+                            <span class="w-4 h-4 rounded-full bg-purple-500 inline-block"></span>
+                            <label class="font-display text-lg font-bold text-purple-900">Category B Title</label>
+                        </div>
+                        <input type="text" id="catB-name" value="NEGATIVE IMPERATIVES" placeholder="e.g. Negative Imperatives" 
+                            class="w-full px-4 py-2.5 rounded-xl border-2 border-purple-300 font-bold text-purple-900 focus:outline-none focus:border-purple-500 shadow-sm bg-white">
+                        
+                        <label class="text-xs font-bold text-purple-800 uppercase tracking-wider">Word List (One phrase/word per line or comma-separated)</label>
+                        <textarea id="catB-words" rows="6" 
+                            class="w-full p-3 rounded-xl border-2 border-purple-200 focus:outline-none focus:border-purple-500 text-sm font-medium shadow-inner bg-white resize-none"
+                            placeholder="Don't run&#10;Don't shout&#10;Don't touch it&#10;Don't open the door">Don't run
+Don't shout
+Don't touch it
+Don't open the door
+Don't be late
+Never give up
+Don't write here
+Do not forget</textarea>
+                        <div class="text-right text-xs text-purple-600 font-semibold" id="catB-count">8 words</div>
+                    </div>
+                </div>
+
+                <!-- GAMEPLAY SETTINGS & TEAMS SETUP -->
+                <div class="bg-slate-50 rounded-2xl p-5 border-2 border-slate-200 grid grid-cols-1 md:grid-cols-3 gap-6">
+                    
+                    <!-- Game Rules -->
+                    <div class="space-y-3">
+                        <h3 class="font-display text-md font-bold text-slate-800 flex items-center gap-1.5">
+                            ⚙️ Arena Rules
+                        </h3>
+                        <div>
+                            <label class="text-xs font-bold text-slate-600 block mb-1">Words to Play</label>
+                            <select id="setting-word-count" class="w-full p-2.5 rounded-xl border border-slate-300 font-semibold text-sm bg-white focus:ring-2 focus:ring-cyan-500">
+                                <option value="all" selected>All Entered Words (Max)</option>
+                                <option value="8">8 Words (4 per category)</option>
+                                <option value="12">12 Words (6 per category)</option>
+                                <option value="16">16 Words (8 per category)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="text-xs font-bold text-slate-600 block mb-1">Drift Speed / Difficulty</label>
+                            <select id="setting-speed" class="w-full p-2.5 rounded-xl border border-slate-300 font-semibold text-sm bg-white focus:ring-2 focus:ring-cyan-500">
+                                <option value="slow">Gentle Breeze (Slow / High School Easy)</option>
+                                <option value="medium" selected>Standard Drift (Medium Speed)</option>
+                                <option value="fast">Arcade Storm (Fast Movement)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Mode & Timer -->
+                    <div class="space-y-3">
+                        <h3 class="font-display text-md font-bold text-slate-800 flex items-center gap-1.5">
+                            🕹️ Interaction & Timer
+                        </h3>
+                        <div>
+                            <label class="text-xs font-bold text-slate-600 block mb-1">Default Classification Mode</label>
+                            <select id="setting-mode" class="w-full p-2.5 rounded-xl border border-slate-300 font-semibold text-sm bg-white focus:ring-2 focus:ring-cyan-500">
+                                <option value="drag" selected>Mode A: Drag & Drop Tiles</option>
+                                <option value="click">Mode B: Click Tile then Category</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="text-xs font-bold text-slate-600 block mb-1">Countdown Timer</label>
+                            <select id="setting-timer" class="w-full p-2.5 rounded-xl border border-slate-300 font-semibold text-sm bg-white focus:ring-2 focus:ring-cyan-500">
+                                <option value="0">No Timer (Untimed Practice)</option>
+                                <option value="60">60 Seconds</option>
+                                <option value="120" selected>120 Seconds (2 Minutes)</option>
+                                <option value="180">180 Seconds (3 Minutes)</option>
+                                <option value="300">300 Seconds (5 Minutes)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Teams Config -->
+                    <div class="space-y-3">
+                        <h3 class="font-display text-md font-bold text-slate-800 flex items-center gap-1.5">
+                            👥 Classroom Teams
+                        </h3>
+                        <div>
+                            <label class="text-xs font-bold text-slate-600 block mb-1">Participating Teams</label>
+                            <div class="flex gap-2">
+                                <input type="text" id="new-team-name" placeholder="New team name..." class="flex-grow p-2 rounded-xl border border-slate-300 text-xs font-semibold">
+                                <button onclick="addTeam()" class="bg-indigo-600 text-white text-xs font-bold px-3 py-2 rounded-xl hover:bg-indigo-500">Add</button>
+                            </div>
+                        </div>
+                        <div id="teams-chip-container" class="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto p-1 bg-white rounded-xl border border-slate-200">
+                            <!-- Team chips inserted via JS -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- PREVIEW & LAUNCH -->
+                <div class="flex flex-col sm:flex-row justify-between items-center gap-4 pt-4 border-t-2 border-slate-100">
+                    <div id="setup-preview-summary" class="text-xs text-slate-500 font-semibold">
+                        Ready: <span id="summary-word-count" class="text-slate-800 font-bold">16 words</span> ready to shuffle across <span id="summary-team-count" class="text-slate-800 font-bold">4 teams</span>.
+                    </div>
+
+                    <button onclick="launchGame()" class="arcade-btn w-full sm:w-auto bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-display font-bold text-xl py-4 px-10 rounded-2xl shadow-lg border-2 border-emerald-300 flex items-center justify-center gap-3">
+                        <span>🚀</span> START GAME — SHUFFLE ARENA!
+                    </button>
+                </div>
+            </div>
+        </section>
+
+
+        <!-- ========================================== -->
+        <!-- VIEW 2: GAME ARENA PLAYING SCREEN          -->
+        <!-- ========================================== -->
+        <section id="view-game" class="hidden flex flex-col space-y-3 w-full my-auto">
+            
+            <!-- GAME CONTROL BAR & HUD -->
+            <div class="bg-white rounded-2xl p-3 border-2 border-slate-200 shadow-md flex flex-wrap justify-between items-center gap-3">
+                
+                <!-- Team Active Selector / Turn Banner -->
+                <div class="flex items-center gap-2">
+                    <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Active Team:</span>
+                    <select id="active-team-select" onchange="changeActiveTeam(this.value)" class="bg-indigo-50 border-2 border-indigo-300 text-indigo-900 font-display font-bold text-sm sm:text-base py-1 px-3 rounded-xl focus:outline-none">
+                        <!-- Active team options populated by JS -->
+                    </select>
+                </div>
+
+                <!-- Stats Counters -->
+                <div class="flex items-center gap-3 sm:gap-6 bg-slate-100 py-1.5 px-4 rounded-xl border border-slate-200 text-xs sm:text-sm font-bold">
+                    <div class="text-slate-600">
+                        Remaining: <span id="stat-remaining" class="text-cyan-600 text-base font-extrabold">0</span>
+                    </div>
+                    <div class="text-slate-300">|</div>
+                    <div class="text-slate-600">
+                        Score: <span id="stat-score" class="text-emerald-600 text-base font-extrabold">0</span>
+                    </div>
+                    <div class="text-slate-300">|</div>
+                    <div class="text-slate-600">
+                        Errors: <span id="stat-errors" class="text-rose-500 text-base font-extrabold">0</span>
+                    </div>
+                </div>
+
+                <!-- Timer & Mode Switcher -->
+                <div class="flex items-center gap-2">
+                    <!-- Timer Badge -->
+                    <div id="timer-box" class="bg-amber-100 text-amber-900 border-2 border-amber-300 font-display font-bold py-1 px-3 rounded-xl text-sm flex items-center gap-1.5">
+                        ⏱️ <span id="stat-timer" class="text-base">02:00</span>
+                    </div>
+
+                    <!-- Mode Toggle Button -->
+                    <button id="btn-toggle-mode" onclick="toggleInteractionMode()" class="arcade-btn bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-bold py-1.5 px-3 rounded-xl border border-slate-300 flex items-center gap-1">
+                        ✋ <span id="mode-label-text">Mode: Drag & Drop</span>
+                    </button>
+
+                    <!-- Pause/Resume -->
+                    <button id="btn-pause" onclick="togglePauseGame()" class="arcade-btn bg-amber-500 hover:bg-amber-400 text-white font-bold py-1.5 px-3 rounded-xl text-xs">
+                        ⏸️ Pause
+                    </button>
+
+                    <!-- Restart -->
+                    <button onclick="restartCurrentGame()" class="arcade-btn bg-rose-500 hover:bg-rose-400 text-white font-bold py-1.5 px-3 rounded-xl text-xs" title="Reshuffle & Restart">
+                        🔄
+                    </button>
+                </div>
+            </div>
+
+            <!-- CLICK MODE INSTRUCTION BANNER (Shown only when in Click mode) -->
+            <div id="click-mode-banner" class="hidden bg-yellow-300 border-2 border-yellow-500 text-yellow-950 font-bold text-center text-xs sm:text-sm py-1.5 px-4 rounded-xl shadow-sm animate-pulse">
+                👉 CLICK-TO-CLASSIFY ACTIVE: Click a moving word tile below, then click either Category A or Category B drop zone!
+            </div>
+
+            <!-- MAIN PLAYING ARENA LAYOUT -->
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-3 sm:gap-4 items-stretch">
+                
+                <!-- CATEGORY A DROP ZONE (LEFT / TOP) -->
+                <div id="zone-catA" onclick="handleZoneClick('A')" 
+                    class="drop-zone lg:col-span-3 bg-gradient-to-b from-cyan-500 to-cyan-700 text-white rounded-3xl p-4 flex flex-col justify-between border-4 border-cyan-300 shadow-xl min-h-[160px] lg:min-h-[480px] relative overflow-hidden group">
+                    <div class="z-10">
+                        <div class="bg-cyan-900/40 backdrop-blur-md p-2.5 rounded-2xl border border-cyan-300/30 text-center">
+                            <span class="bg-yellow-400 text-slate-900 text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full inline-block mb-1">Category A</span>
+                            <h2 id="display-catA-title" class="font-display text-lg sm:text-xl font-bold leading-tight break-words">AFFIRMATIVE IMPERATIVES</h2>
+                        </div>
+                    </div>
+
+                    <!-- Classified Words List Container -->
+                    <div id="container-catA-words" class="z-10 flex-grow my-3 space-y-1.5 overflow-y-auto max-h-[150px] lg:max-h-[340px] pr-1">
+                        <!-- Correctly placed word items appear here -->
+                    </div>
+
+                    <div class="z-10 bg-cyan-900/30 text-cyan-100 text-center py-1.5 rounded-xl text-xs font-semibold border border-cyan-300/20">
+                        Total: <span id="catA-count-badge" class="font-bold text-white text-sm">0</span>
+                    </div>
+                </div>
+
+                <!-- FLOATING SHUFFLE ARENA (CENTER) -->
+                <div id="shuffle-arena" class="lg:col-span-6 bg-slate-100 rounded-3xl border-4 border-slate-300 shadow-inner relative overflow-hidden min-h-[320px] sm:min-h-[420px] lg:min-h-[480px] arena-grid flex items-center justify-center">
+                    
+                    <!-- Pause Overlay -->
+                    <div id="pause-overlay" class="hidden absolute inset-0 bg-slate-900/60 backdrop-blur-md z-40 flex flex-col items-center justify-center text-white space-y-4">
+                        <div class="font-display text-4xl font-black tracking-wider text-yellow-400">GAME PAUSED</div>
+                        <p class="text-sm text-slate-200">The shuffle arena is frozen.</p>
+                        <button onclick="togglePauseGame()" class="arcade-btn bg-emerald-500 hover:bg-emerald-400 text-white font-bold py-3 px-8 rounded-2xl text-lg shadow-lg">
+                            ▶️ RESUME GAME
+                        </button>
+                    </div>
+
+                    <!-- Floating Word Tiles are injected dynamically via JavaScript -->
+                </div>
+
+                <!-- CATEGORY B DROP ZONE (RIGHT / BOTTOM) -->
+                <div id="zone-catB" onclick="handleZoneClick('B')" 
+                    class="drop-zone lg:col-span-3 bg-gradient-to-b from-purple-600 to-purple-800 text-white rounded-3xl p-4 flex flex-col justify-between border-4 border-purple-300 shadow-xl min-h-[160px] lg:min-h-[480px] relative overflow-hidden group">
+                    <div class="z-10">
+                        <div class="bg-purple-950/40 backdrop-blur-md p-2.5 rounded-2xl border border-purple-300/30 text-center">
+                            <span class="bg-yellow-400 text-slate-900 text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full inline-block mb-1">Category B</span>
+                            <h2 id="display-catB-title" class="font-display text-lg sm:text-xl font-bold leading-tight break-words">NEGATIVE IMPERATIVES</h2>
+                        </div>
+                    </div>
+
+                    <!-- Classified Words List Container -->
+                    <div id="container-catB-words" class="z-10 flex-grow my-3 space-y-1.5 overflow-y-auto max-h-[150px] lg:max-h-[340px] pr-1">
+                        <!-- Correctly placed word items appear here -->
+                    </div>
+
+                    <div class="z-10 bg-purple-950/30 text-purple-100 text-center py-1.5 rounded-xl text-xs font-semibold border border-purple-300/20">
+                        Total: <span id="catB-count-badge" class="font-bold text-white text-sm">0</span>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- LIVE LEADERBOARD MINI BAR -->
+            <div class="bg-white rounded-2xl p-3 border-2 border-slate-200 shadow-sm flex flex-wrap items-center justify-between gap-3">
+                <div class="flex items-center gap-2">
+                    <span class="font-display font-bold text-sm text-slate-700">🏆 Live Scoreboard:</span>
+                </div>
+                <div id="live-leaderboard-chips" class="flex flex-wrap gap-2 text-xs font-bold">
+                    <!-- Dynamic team chips -->
+                </div>
+            </div>
+
+        </section>
+
+
+        <!-- ========================================== -->
+        <!-- VIEW 3: WINNER & SCORE SUMMARY MODAL       -->
+        <!-- ========================================== -->
+        <section id="view-results" class="hidden max-w-2xl mx-auto w-full py-6">
+            <div class="arcade-card p-6 sm:p-10 text-center space-y-6 bg-gradient-to-b from-white to-sky-50">
+                <div class="text-6xl animate-bounce">🏆</div>
+                <div>
+                    <h2 class="font-display text-3xl sm:text-4xl font-extrabold text-slate-900">CHALLENGE COMPLETE!</h2>
+                    <p id="results-subtitle" class="text-slate-600 font-medium text-sm mt-1">All words have been correctly classified!</p>
+                </div>
+
+                <!-- Winning Team Highlight -->
+                <div id="winning-team-box" class="bg-gradient-to-r from-amber-400 to-yellow-500 text-slate-950 p-4 rounded-2xl shadow-lg border-2 border-yellow-300">
+                    <div class="text-xs font-extrabold uppercase tracking-widest text-slate-800">Top Performing Team</div>
+                    <div id="winner-name" class="font-display text-2xl sm:text-3xl font-black mt-0.5">Team Alpha</div>
+                    <div id="winner-score" class="text-sm font-bold mt-1 text-slate-900">Score: 120 pts</div>
+                </div>
+
+                <!-- Detailed Team Standings -->
+                <div class="bg-white rounded-2xl p-4 border-2 border-slate-200 shadow-inner">
+                    <h3 class="font-display font-bold text-slate-700 text-sm mb-3">Final Standings</h3>
+                    <div id="final-standings-list" class="space-y-2 text-left">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="flex flex-col sm:flex-row gap-3 justify-center pt-2">
+                    <button onclick="restartCurrentGame()" class="arcade-btn bg-emerald-500 hover:bg-emerald-400 text-white font-bold py-3 px-6 rounded-xl text-sm">
+                        🔄 Play Again (Same Words)
+                    </button>
+                    <button onclick="switchView('setup')" class="arcade-btn bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-3 px-6 rounded-xl text-sm">
+                        ⚙️ New Game Setup
+                    </button>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- FOOTER -->
+    <footer class="bg-slate-200 border-t border-slate-300 text-center text-slate-500 text-xs py-2 px-4 mt-4">
+        Word Shuffle Arena &bull; Interactive Educational Tool &bull; Offline Ready
+    </footer>
+
+    <!-- INTERACTIVE FEEDBACK TOAST / FLOATING NOTIFICATION -->
+    <div id="feedback-toast" class="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-50 pointer-events-none transition-all duration-300 opacity-0 translate-y-4">
+        <div id="feedback-content" class="bg-slate-900 text-white font-display font-bold px-6 py-3 rounded-2xl shadow-2xl border-2 border-white flex items-center gap-2 text-base">
+            <span id="feedback-icon">✨</span>
+            <span id="feedback-msg">Correct!</span>
+        </div>
+    </div>
+
+
+    <!-- JavaScript Game Logic -->
+    <script>
+        /* ===================================================================
+           STATE MANAGEMENT & GAME VARIABLES
+           =================================================================== */
+        let gameState = {
+            view: 'setup',
+            soundEnabled: true,
+            catA: { name: '', words: [] },
+            catB: { name: '', words: [] },
+            activeWords: [], // { id, text, category, x, y, vx, vy, width, height, element, isClassified }
+            teams: [
+                { name: 'Team Alpha', score: 0, errors: 0 },
+                { name: 'Team Beta', score: 0, errors: 0 }
+            ],
+            activeTeamIndex: 0,
+            mode: 'drag', // 'drag' or 'click'
+            selectedTileId: null, // For click mode
+            difficulty: 'medium',
+            timerDuration: 120,
+            timerRemaining: 120,
+            timerInterval: null,
+            isPaused: false,
+            isGameOver: false,
+            animationFrameId: null,
+            totalScore: 0,
+            totalErrors: 0,
+            totalRemaining: 0
+        };
+
+        // DOM Element Cache
+        const DOM = {
+            catAName: document.getElementById('catA-name'),
+            catAWords: document.getElementById('catA-words'),
+            catACount: document.getElementById('catA-count'),
+            catBName: document.getElementById('catB-name'),
+            catBWords: document.getElementById('catB-words'),
+            catBCount: document.getElementById('catB-count'),
+            settingWordCount: document.getElementById('setting-word-count'),
+            settingSpeed: document.getElementById('setting-speed'),
+            settingMode: document.getElementById('setting-mode'),
+            settingTimer: document.getElementById('setting-timer'),
+            teamsChipContainer: document.getElementById('teams-chip-container'),
+            newTeamName: document.getElementById('new-team-name'),
+            summaryWordCount: document.getElementById('summary-word-count'),
+            summaryTeamCount: document.getElementById('summary-team-count'),
+            
+            // Views
+            viewSetup: document.getElementById('view-setup'),
+            viewGame: document.getElementById('view-game'),
+            viewResults: document.getElementById('view-results'),
+            
+            // Game Arena
+            shuffleArena: document.getElementById('shuffle-arena'),
+            zoneCatA: document.getElementById('zone-catA'),
+            zoneCatB: document.getElementById('zone-catB'),
+            displayCatATitle: document.getElementById('display-catA-title'),
+            displayCatBTitle: document.getElementById('display-catB-title'),
+            containerCatAWords: document.getElementById('container-catA-words'),
+            containerCatBWords: document.getElementById('container-catB-words'),
+            catACountBadge: document.getElementById('catA-count-badge'),
+            catBCountBadge: document.getElementById('catB-count-badge'),
+            
+            // Stats
+            statRemaining: document.getElementById('stat-remaining'),
+            statScore: document.getElementById('stat-score'),
+            statErrors: document.getElementById('stat-errors'),
+            statTimer: document.getElementById('stat-timer'),
+            timerBox: document.getElementById('timer-box'),
+            activeTeamSelect: document.getElementById('active-team-select'),
+            modeLabelText: document.getElementById('mode-label-text'),
+            clickModeBanner: document.getElementById('click-mode-banner'),
+            pauseOverlay: document.getElementById('pause-overlay'),
+            btnPause: document.getElementById('btn-pause'),
+            liveLeaderboardChips: document.getElementById('live-leaderboard-chips'),
+            
+            // Toast
+            toast: document.getElementById('feedback-toast'),
+            toastMsg: document.getElementById('feedback-msg'),
+            toastIcon: document.getElementById('feedback-icon'),
+            toastContent: document.getElementById('feedback-content')
+        };
+
+        /* ===================================================================
+           SOUND SYNTHESIZER (Web Audio API - Completely Offline)
+           =================================================================== */
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        
+        function playTone(freq, type, duration) {
+            if (!gameState.soundEnabled) return;
+            try {
+                if (audioCtx.state === 'suspended') {
+                    audioCtx.resume();
+                }
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = type;
+                osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+                gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start();
+                osc.stop(audioCtx.currentTime + duration);
+            } catch (e) { console.error(e); }
+        }
+
+        function playSound(effect) {
+            if (!gameState.soundEnabled) return;
+            if (effect === 'correct') {
+                playTone(523.25, 'triangle', 0.15); // C5
+                setTimeout(() => playTone(659.25, 'triangle', 0.2), 100); // E5
+                setTimeout(() => playTone(783.99, 'triangle', 0.3), 200); // G5
+            } else if (effect === 'wrong') {
+                playTone(220, 'sawtooth', 0.2); // A3
+                setTimeout(() => playTone(196, 'sawtooth', 0.3), 150); // G3
+            } else if (effect === 'select') {
+                playTone(440, 'sine', 0.08);
+            } else if (effect === 'win') {
+                [523.25, 659.25, 783.99, 1046.50].forEach((freq, idx) => {
+                    setTimeout(() => playTone(freq, 'triangle', 0.25), idx * 120);
+                });
+            }
+        }
+
+        function toggleSound() {
+            gameState.soundEnabled = !gameState.soundEnabled;
+            document.getElementById('sound-icon').textContent = gameState.soundEnabled ? '🔊' : '🔇';
+            document.getElementById('sound-text').textContent = gameState.soundEnabled ? 'Sound: ON' : 'Sound: OFF';
+        }
+
+        /* ===================================================================
+           INITIALIZATION & TEAMS SETUP
+           =================================================================== */
+        window.onload = function() {
+            // Load saved settings if present
+            loadFromLocalStorage();
+            updateSetupWordCounts();
+            renderTeamChips();
+            setupInputListeners();
+            setupDropZoneEvents();
+
+            // Handle window resizing for arena bounding updates
+            window.addEventListener('resize', handleResize);
+        };
+
+        function setupInputListeners() {
+            DOM.catAWords.addEventListener('input', updateSetupWordCounts);
+            DOM.catBWords.addEventListener('input', updateSetupWordCounts);
+        }
+
+        function parseWordsInput(text) {
+            if (!text) return [];
+            return text
+                .split(/[\n,]+/)
+                .map(w => w.trim())
+                .filter(w => w.length > 0);
+        }
+
+        function updateSetupWordCounts() {
+            const listA = parseWordsInput(DOM.catAWords.value);
+            const listB = parseWordsInput(DOM.catBWords.value);
+            DOM.catACount.textContent = `${listA.length} words`;
+            DOM.catBCount.textContent = `${listB.length} words`;
+            DOM.summaryWordCount.textContent = `${listA.length + listB.length} words`;
+        }
+
+        /* ===================================================================
+           TEAM MANAGEMENT
+           =================================================================== */
+        function addTeam() {
+            const name = DOM.newTeamName.value.trim();
+            if (name) {
+                gameState.teams.push({ name: name, score: 0, errors: 0 });
+                DOM.newTeamName.value = '';
+                renderTeamChips();
+            }
+        }
+
+        function removeTeam(index) {
+            if (gameState.teams.length <= 1) {
+                showToast("Keep at least one team!", "⚠️");
+                return;
+            }
+            gameState.teams.splice(index, 1);
+            if (gameState.activeTeamIndex >= gameState.teams.length) {
+                gameState.activeTeamIndex = 0;
+            }
+            renderTeamChips();
+        }
+
+        function renderTeamChips() {
+            DOM.teamsChipContainer.innerHTML = '';
+            gameState.teams.forEach((t, idx) => {
+                const chip = document.createElement('div');
+                chip.className = 'flex items-center gap-1 bg-indigo-100 text-indigo-900 px-2.5 py-1 rounded-lg text-xs font-bold border border-indigo-200';
+                chip.innerHTML = `
+                    <span>${t.name}</span>
+                    <button onclick="removeTeam(${idx})" class="text-indigo-400 hover:text-rose-600 ml-1 font-black">&times;</button>
+                `;
+                DOM.teamsChipContainer.appendChild(chip);
+            });
+            DOM.summaryTeamCount.textContent = `${gameState.teams.length} teams`;
+            updateActiveTeamDropdown();
+        }
+
+        function updateActiveTeamDropdown() {
+            DOM.activeTeamSelect.innerHTML = '';
+            gameState.teams.forEach((t, idx) => {
+                const opt = document.createElement('option');
+                opt.value = idx;
+                opt.textContent = `${t.name} (${t.score} pts)`;
+                if (idx === gameState.activeTeamIndex) opt.selected = true;
+                DOM.activeTeamSelect.appendChild(opt);
+            });
+        }
+
+        function changeActiveTeam(index) {
+            gameState.activeTeamIndex = parseInt(index);
+            updateHUDStats();
+            playSound('select');
+        }
+
+        /* ===================================================================
+           PRESETS & STORAGE
+           =================================================================== */
+        function loadDefaultPreset() {
+            DOM.catAName.value = "AFFIRMATIVE IMPERATIVES";
+            DOM.catAWords.value = "Open the door\nStand up\nListen carefully\nTurn left\nSpeak clearly\nBe quiet\nTake notes\nSit down";
+            DOM.catBName.value = "NEGATIVE IMPERATIVES";
+            DOM.catBWords.value = "Don't run\nDon't shout\nDon't touch it\nDon't open the door\nDon't be late\nNever give up\nDon't write here\nDo not forget";
+            updateSetupWordCounts();
+            showToast("Default Example Loaded!", "📋");
+        }
+
+        function saveCurrentToLocalStorage() {
+            const data = {
+                catAName: DOM.catAName.value,
+                catAWords: DOM.catAWords.value,
+                catBName: DOM.catBName.value,
+                catBWords: DOM.catBWords.value,
+                teams: gameState.teams
+            };
+            localStorage.setItem('wsa_saved_data', JSON.stringify(data));
+            showToast("Custom game saved to local storage!", "💾");
+        }
+
+        function loadFromLocalStorage() {
+            const saved = localStorage.getItem('wsa_saved_data');
+            if (saved) {
+                try {
+                    const data = JSON.parse(saved);
+                    if (data.catAName) DOM.catAName.value = data.catAName;
+                    if (data.catAWords) DOM.catAWords.value = data.catAWords;
+                    if (data.catBName) DOM.catBName.value = data.catBName;
+                    if (data.catBWords) DOM.catBWords.value = data.catBWords;
+                    if (data.teams && Array.isArray(data.teams)) gameState.teams = data.teams;
+                } catch(e) { console.error(e); }
+            }
+        }
+
+        function clearCustomData() {
+            localStorage.removeItem('wsa_saved_data');
+            DOM.catAName.value = "Category A";
+            DOM.catAWords.value = "";
+            DOM.catBName.value = "Category B";
+            DOM.catBWords.value = "";
+            updateSetupWordCounts();
+            showToast("Setup cleared!", "🗑️");
+        }
+
+        /* ===================================================================
+           VIEW SWITCHING
+           =================================================================== */
+        function switchView(viewName) {
+            gameState.view = viewName;
+            DOM.viewSetup.classList.add('hidden');
+            DOM.viewGame.classList.add('hidden');
+            DOM.viewResults.classList.add('hidden');
+
+            if (viewName === 'setup') {
+                DOM.viewSetup.classList.remove('hidden');
+                stopGameTimer();
+                cancelAnimationFrame(gameState.animationFrameId);
+            } else if (viewName === 'game') {
+                DOM.viewGame.classList.remove('hidden');
+            } else if (viewName === 'results') {
+                DOM.viewResults.classList.remove('hidden');
+                stopGameTimer();
+                cancelAnimationFrame(gameState.animationFrameId);
+            }
+        }
+
+        /* ===================================================================
+           GAME LAUNCH & SHUFFLE ENGINE
+           =================================================================== */
+        function launchGame() {
+            // Read configurations
+            const nameA = DOM.catAName.value.trim() || "Category A";
+            const nameB = DOM.catBName.value.trim() || "Category B";
+            const wordsA = parseWordsInput(DOM.catAWords.value);
+            const wordsB = parseWordsInput(DOM.catBWords.value);
+
+            if (wordsA.length === 0 || wordsB.length === 0) {
+                showToast("Please enter words for BOTH categories!", "⚠️");
+                return;
+            }
+
+            gameState.catA = { name: nameA, words: wordsA };
+            gameState.catB = { name: nameB, words: wordsB };
+            gameState.difficulty = DOM.settingSpeed.value;
+            gameState.mode = DOM.settingMode.value;
+            gameState.timerDuration = parseInt(DOM.settingTimer.value);
+            gameState.timerRemaining = gameState.timerDuration;
+            gameState.isPaused = false;
+            gameState.isGameOver = false;
+            gameState.selectedTileId = null;
+
+            // Display Category Titles
+            DOM.displayCatATitle.textContent = nameA;
+            DOM.displayCatBTitle.textContent = nameB;
+
+            // Clear drop zone contents
+            DOM.containerCatAWords.innerHTML = '';
+            DOM.containerCatBWords.innerHTML = '';
+            DOM.catACountBadge.textContent = '0';
+            DOM.catBCountBadge.textContent = '0';
+
+            // Select active words based on count setting
+            const countSetting = DOM.settingWordCount.value;
+            let selectedA = [...wordsA];
+            let selectedB = [...wordsB];
+
+            if (countSetting !== 'all') {
+                const targetPerCat = parseInt(countSetting) / 2;
+                selectedA = shuffleArray(selectedA).slice(0, targetPerCat);
+                selectedB = shuffleArray(selectedB).slice(0, targetPerCat);
+            }
+
+            // Combine and Shuffle Words internally
+            let combined = [];
+            selectedA.forEach((w, idx) => combined.push({ id: `A_${idx}_${Date.now()}`, text: w, category: 'A' }));
+            selectedB.forEach((w, idx) => combined.push({ id: `B_${idx}_${Date.now()}`, text: w, category: 'B' }));
+            combined = shuffleArray(combined);
+
+            // Prepare Floating Tile Objects
+            DOM.shuffleArena.innerHTML = '';
+            DOM.shuffleArena.appendChild(DOM.pauseOverlay); // Keep overlay in DOM
+
+            const arenaRect = DOM.shuffleArena.getBoundingClientRect();
+            const arenaWidth = arenaRect.width || 600;
+            const arenaHeight = arenaRect.height || 450;
+
+            // Speed multiplier
+            let speedMult = 1.0;
+            if (gameState.difficulty === 'slow') speedMult = 0.5;
+            if (gameState.difficulty === 'fast') speedMult = 1.8;
+
+            gameState.activeWords = combined.map((item, index) => {
+                const tileEl = document.createElement('div');
+                tileEl.className = 'word-tile bg-white hover:bg-sky-50 text-slate-800 font-display font-bold px-4 py-2.5 rounded-2xl shadow-md border-2 border-slate-300 text-sm sm:text-base select-none cursor-pointer';
+                tileEl.textContent = item.text;
+                tileEl.setAttribute('data-id', item.id);
+                
+                // Add to Arena DOM to measure size
+                DOM.shuffleArena.appendChild(tileEl);
+                const rect = tileEl.getBoundingClientRect();
+                const tileWidth = rect.width || 120;
+                const tileHeight = rect.height || 40;
+
+                // Random positioning ensuring it stays inside bounds
+                const posX = Math.random() * (arenaWidth - tileWidth - 20) + 10;
+                const posY = Math.random() * (arenaHeight - tileHeight - 20) + 10;
+
+                // Random velocity components
+                const angle = Math.random() * Math.PI * 2;
+                const speed = (0.8 + Math.random() * 1.2) * speedMult;
+                const vx = Math.cos(angle) * speed;
+                const vy = Math.sin(angle) * speed;
+
+                tileEl.style.left = `${posX}px`;
+                tileEl.style.top = `${posY}px`;
+
+                // Attach Event Listeners
+                setupTileInteraction(tileEl, item.id);
+
+                return {
+                    id: item.id,
+                    text: item.text,
+                    category: item.category,
+                    x: posX,
+                    y: posY,
+                    vx: vx,
+                    vy: vy,
+                    width: tileWidth,
+                    height: tileHeight,
+                    element: tileEl,
+                    isClassified: false,
+                    isDragging: false
+                };
+            });
+
+            gameState.totalRemaining = gameState.activeWords.length;
+            updateHUDModeLabel();
+            updateHUDStats();
+            updateActiveTeamDropdown();
+            renderLiveLeaderboard();
+
+            // Start Animation Loop & Timer
+            switchView('game');
+            startGameTimer();
+            if (gameState.animationFrameId) cancelAnimationFrame(gameState.animationFrameId);
+            gameState.animationFrameId = requestAnimationFrame(animateArena);
+
+            playSound('select');
+        }
+
+        function shuffleArray(arr) {
+            const a = [...arr];
+            for (let i = a.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [a[i], a[j]] = [a[j], a[i]];
+            }
+            return a;
+        }
+
+        /* ===================================================================
+           ARENA ANIMATION & PHYSICS ENGINE
+           =================================================================== */
+        function animateArena() {
+            if (!gameState.isPaused && !gameState.isGameOver && gameState.view === 'game') {
+                const arenaRect = DOM.shuffleArena.getBoundingClientRect();
+                const arenaW = arenaRect.width;
+                const arenaH = arenaRect.height;
+
+                gameState.activeWords.forEach(tile => {
+                    if (tile.isClassified || tile.isDragging) return;
+
+                    // Update Position
+                    tile.x += tile.vx;
+                    tile.y += tile.vy;
+
+                    // Wall Bounce Physics
+                    if (tile.x <= 5) {
+                        tile.x = 5;
+                        tile.vx *= -1;
+                    } else if (tile.x + tile.width >= arenaW - 5) {
+                        tile.x = arenaW - tile.width - 5;
+                        tile.vx *= -1;
+                    }
+
+                    if (tile.y <= 5) {
+                        tile.y = 5;
+                        tile.vy *= -1;
+                    } else if (tile.y + tile.height >= arenaH - 5) {
+                        tile.y = arenaH - tile.height - 5;
+                        tile.vy *= -1;
+                    }
+
+                    // Slight random drifting movement variation
+                    if (Math.random() < 0.01) {
+                        tile.vx += (Math.random() - 0.5) * 0.2;
+                        tile.vy += (Math.random() - 0.5) * 0.2;
+                    }
+
+                    // Apply visual coordinates
+                    tile.element.style.left = `${tile.x}px`;
+                    tile.element.style.top = `${tile.y}px`;
+                });
+            }
+
+            gameState.animationFrameId = requestAnimationFrame(animateArena);
+        }
+
+        function handleResize() {
+            if (gameState.view !== 'game') return;
+            const arenaRect = DOM.shuffleArena.getBoundingClientRect();
+            gameState.activeWords.forEach(tile => {
+                if (tile.x + tile.width > arenaRect.width) tile.x = Math.max(0, arenaRect.width - tile.width - 10);
+                if (tile.y + tile.height > arenaRect.height) tile.y = Math.max(0, arenaRect.height - tile.height - 10);
+            });
+        }
+
+        /* ===================================================================
+           TILE INTERACTION (DRAG & DROP + CLICK-TO-CLASSIFY + TOUCH)
+           =================================================================== */
+        function setupTileInteraction(tileEl, tileId) {
+            // Drag Start (HTML5 Native Drag)
+            tileEl.draggable = true;
+
+            tileEl.addEventListener('dragstart', (e) => {
+                if (gameState.isPaused || gameState.mode !== 'drag') {
+                    e.preventDefault();
+                    return;
+                }
+                const tileObj = gameState.activeWords.find(t => t.id === tileId);
+                if (tileObj) tileObj.isDragging = true;
+                e.dataTransfer.setData('text/plain', tileId);
+                tileEl.classList.add('dragging');
+                playSound('select');
+            });
+
+            tileEl.addEventListener('dragend', () => {
+                const tileObj = gameState.activeWords.find(t => t.id === tileId);
+                if (tileObj) tileObj.isDragging = false;
+                tileEl.classList.remove('dragging');
+            });
+
+            // Touch Dragging Support
+            let touchOffsetX = 0, touchOffsetY = 0;
+            tileEl.addEventListener('touchstart', (e) => {
+                if (gameState.isPaused || gameState.mode !== 'drag') return;
+                const touch = e.touches[0];
+                const rect = tileEl.getBoundingClientRect();
+                touchOffsetX = touch.clientX - rect.left;
+                touchOffsetY = touch.clientY - rect.top;
+                
+                const tileObj = gameState.activeWords.find(t => t.id === tileId);
+                if (tileObj) tileObj.isDragging = true;
+                tileEl.classList.add('dragging');
+            }, { passive: true });
+
+            tileEl.addEventListener('touchmove', (e) => {
+                const tileObj = gameState.activeWords.find(t => t.id === tileId);
+                if (!tileObj || !tileObj.isDragging || gameState.mode !== 'drag') return;
+                
+                const touch = e.touches[0];
+                const arenaRect = DOM.shuffleArena.getBoundingClientRect();
+                
+                tileObj.x = touch.clientX - arenaRect.left - touchOffsetX;
+                tileObj.y = touch.clientY - arenaRect.top - touchOffsetY;
+                
+                tileEl.style.left = `${tileObj.x}px`;
+                tileEl.style.top = `${tileObj.y}px`;
+            }, { passive: true });
+
+            tileEl.addEventListener('touchend', (e) => {
+                const tileObj = gameState.activeWords.find(t => t.id === tileId);
+                if (!tileObj || !tileObj.isDragging) return;
+                tileObj.isDragging = false;
+                tileEl.classList.remove('dragging');
+
+                // Check touch drop position relative to Category drop zones
+                const touch = e.changedTouches[0];
+                const zoneARect = DOM.zoneCatA.getBoundingClientRect();
+                const zoneBRect = DOM.zoneCatB.getBoundingClientRect();
+
+                if (touch.clientX >= zoneARect.left && touch.clientX <= zoneARect.right &&
+                    touch.clientY >= zoneARect.top && touch.clientY <= zoneARect.bottom) {
+                    processClassification(tileId, 'A');
+                } else if (touch.clientX >= zoneBRect.left && touch.clientX <= zoneBRect.right &&
+                           touch.clientY >= zoneBRect.top && touch.clientY <= zoneBRect.bottom) {
+                    processClassification(tileId, 'B');
+                }
+            });
+
+            // Click-to-Classify Selection
+            tileEl.addEventListener('click', (e) => {
+                if (gameState.isPaused) return;
+                if (gameState.mode === 'click') {
+                    e.stopPropagation();
+                    selectTileForClickClassification(tileId);
+                }
+            });
+        }
+
+        function selectTileForClickClassification(tileId) {
+            // Unselect previous
+            gameState.activeWords.forEach(t => {
+                if (t.element) t.element.classList.remove('selected-click');
+            });
+
+            if (gameState.selectedTileId === tileId) {
+                gameState.selectedTileId = null; // Toggle off
+            } else {
+                gameState.selectedTileId = tileId;
+                const tileObj = gameState.activeWords.find(t => t.id === tileId);
+                if (tileObj && tileObj.element) {
+                    tileObj.element.classList.add('selected-click');
+                    playSound('select');
+                }
+            }
+        }
+
+        function handleZoneClick(targetCategory) {
+            if (gameState.mode === 'click' && gameState.selectedTileId) {
+                processClassification(gameState.selectedTileId, targetCategory);
+                gameState.selectedTileId = null;
+            }
+        }
+
+        /* ===================================================================
+           DROP ZONES EVENTS (MODE A)
+           =================================================================== */
+        function setupDropZoneEvents() {
+            [
+                { zone: DOM.zoneCatA, cat: 'A' },
+                { zone: DOM.zoneCatB, cat: 'B' }
+            ].forEach(item => {
+                item.zone.addEventListener('dragover', (e) => {
+                    if (gameState.mode === 'drag') {
+                        e.preventDefault();
+                        item.zone.classList.add('drag-over');
+                    }
+                });
+
+                item.zone.addEventListener('dragleave', () => {
+                    item.zone.classList.remove('drag-over');
+                });
+
+                item.zone.addEventListener('drop', (e) => {
+                    if (gameState.mode === 'drag') {
+                        e.preventDefault();
+                        item.zone.classList.remove('drag-over');
+                        const tileId = e.dataTransfer.getData('text/plain');
+                        if (tileId) {
+                            processClassification(tileId, item.cat);
+                        }
+                    }
+                });
+            });
+        }
+
+        /* ===================================================================
+           CLASSIFICATION & ANSWER CHECKING
+           =================================================================== */
+        function processClassification(tileId, chosenCategory) {
+            const tileObj = gameState.activeWords.find(t => t.id === tileId);
+            if (!tileObj || tileObj.isClassified) return;
+
+            const isCorrect = (tileObj.category === chosenCategory);
+            const activeTeam = gameState.teams[gameState.activeTeamIndex];
+
+            if (isCorrect) {
+                // Correct Answer Logic
+                tileObj.isClassified = true;
+                
+                // Calculate Points (Base 10 + Speed Bonus)
+                let pts = 10;
+                if (gameState.timerRemaining > 0) {
+                    pts += 5; // Speed bonus
+                }
+                activeTeam.score += pts;
+
+                // Stop movement and remove from Arena
+                if (tileObj.element && tileObj.element.parentNode) {
+                    tileObj.element.parentNode.removeChild(tileObj.element);
+                }
+
+                // Add to Drop Zone List
+                const classifiedTag = document.createElement('div');
+                classifiedTag.className = 'correct-tile bg-white/90 text-slate-800 px-3 py-1.5 rounded-xl font-bold text-xs sm:text-sm shadow flex items-center justify-between border-l-4 ' + 
+                    (chosenCategory === 'A' ? 'border-cyan-500' : 'border-purple-500');
+                classifiedTag.innerHTML = `<span>${tileObj.text}</span> <span class="text-emerald-600 font-extrabold text-xs">✓ +${pts}</span>`;
+
+                if (chosenCategory === 'A') {
+                    DOM.containerCatAWords.appendChild(classifiedTag);
+                } else {
+                    DOM.containerCatBWords.appendChild(classifiedTag);
+                }
+
+                playSound('correct');
+                showToast(`Correct! +${pts} pts`, "🎉", "bg-emerald-600");
+
+            } else {
+                // Incorrect Answer Logic
+                activeTeam.errors += 1;
+                activeTeam.score = Math.max(0, activeTeam.score - 3); // Small penalty
+
+                // Gently bounce back into shuffle arena with direction flip
+                tileObj.vx = -tileObj.vx * 1.5;
+                tileObj.vy = -tileObj.vy * 1.5;
+
+                // Temporary error highlight on tile
+                if (tileObj.element) {
+                    tileObj.element.classList.remove('selected-click');
+                    tileObj.element.classList.add('bg-rose-100', 'border-rose-500', 'text-rose-900');
+                    setTimeout(() => {
+                        if (tileObj.element) {
+                            tileObj.element.classList.remove('bg-rose-100', 'border-rose-500', 'text-rose-900');
+                        }
+                    }, 800);
+                }
+
+                playSound('wrong');
+                showToast("Oops! Try again or choose another word.", "❌", "bg-rose-600");
+            }
+
+            updateHUDStats();
+            renderLiveLeaderboard();
+            checkWinCondition();
+        }
+
+        function checkWinCondition() {
+            const remaining = gameState.activeWords.filter(t => !t.isClassified).length;
+            if (remaining === 0) {
+                endGame(true);
+            }
+        }
+
+        /* ===================================================================
+           HUD & MODE UPDATES
+           =================================================================== */
+        function toggleInteractionMode() {
+            gameState.mode = (gameState.mode === 'drag') ? 'click' : 'drag';
+            gameState.selectedTileId = null;
+            gameState.activeWords.forEach(t => {
+                if (t.element) t.element.classList.remove('selected-click');
+            });
+            updateHUDModeLabel();
+            playSound('select');
+        }
+
+        function updateHUDModeLabel() {
+            if (gameState.mode === 'drag') {
+                DOM.modeLabelText.textContent = "Mode: Drag & Drop";
+                DOM.clickModeBanner.classList.add('hidden');
+            } else {
+                DOM.modeLabelText.textContent = "Mode: Click to Classify";
+                DOM.clickModeBanner.classList.remove('hidden');
+            }
+        }
+
+        function updateHUDStats() {
+            const remaining = gameState.activeWords.filter(t => !t.isClassified).length;
+            const countA = gameState.activeWords.filter(t => t.isClassified && t.category === 'A').length;
+            const countB = gameState.activeWords.filter(t => t.isClassified && t.category === 'B').length;
+            const activeTeam = gameState.teams[gameState.activeTeamIndex];
+
+            DOM.statRemaining.textContent = remaining;
+            DOM.statScore.textContent = activeTeam ? activeTeam.score : 0;
+            DOM.statErrors.textContent = activeTeam ? activeTeam.errors : 0;
+
+            DOM.catACountBadge.textContent = countA;
+            DOM.catBCountBadge.textContent = countB;
+        }
+
+        function renderLiveLeaderboard() {
+            DOM.liveLeaderboardChips.innerHTML = '';
+            const sorted = [...gameState.teams].sort((a, b) => b.score - a.score);
+            
+            sorted.forEach((team, idx) => {
+                const chip = document.createElement('div');
+                chip.className = `px-3 py-1 rounded-xl flex items-center gap-1.5 border ${
+                    idx === 0 ? 'bg-amber-100 text-amber-900 border-amber-300' : 'bg-slate-100 text-slate-700 border-slate-200'
+                }`;
+                chip.innerHTML = `<span>${idx === 0 ? '👑' : ''} ${team.name}:</span> <span class="font-extrabold text-sm">${team.score} pts</span>`;
+                DOM.liveLeaderboardChips.appendChild(chip);
+            });
+        }
+
+        /* ===================================================================
+           TIMER & PAUSE CONTROLS
+           =================================================================== */
+        function startGameTimer() {
+            stopGameTimer();
+            if (gameState.timerDuration <= 0) {
+                DOM.timerBox.classList.add('hidden');
+                return;
+            }
+            DOM.timerBox.classList.remove('hidden');
+            updateTimerDisplay();
+
+            gameState.timerInterval = setInterval(() => {
+                if (!gameState.isPaused && !gameState.isGameOver) {
+                    gameState.timerRemaining--;
+                    updateTimerDisplay();
+
+                    if (gameState.timerRemaining <= 0) {
+                        stopGameTimer();
+                        showToast("Time's Up!", "⏰", "bg-amber-600");
+                        endGame(false);
+                    }
+                }
+            }, 1000);
+        }
+
+        function stopGameTimer() {
+            if (gameState.timerInterval) {
+                clearInterval(gameState.timerInterval);
+                gameState.timerInterval = null;
+            }
+        }
+
+        function updateTimerDisplay() {
+            const mins = Math.floor(gameState.timerRemaining / 60);
+            const secs = gameState.timerRemaining % 60;
+            DOM.statTimer.textContent = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+        }
+
+        function togglePauseGame() {
+            gameState.isPaused = !gameState.isPaused;
+            if (gameState.isPaused) {
+                DOM.pauseOverlay.classList.remove('hidden');
+                DOM.btnPause.textContent = "▶️ Resume";
+            } else {
+                DOM.pauseOverlay.classList.add('hidden');
+                DOM.btnPause.textContent = "⏸️ Pause";
+            }
+        }
+
+        function restartCurrentGame() {
+            // Reset scores for clean replay
+            gameState.teams.forEach(t => {
+                t.score = 0;
+                t.errors = 0;
+            });
+            launchGame();
+        }
+
+        /* ===================================================================
+           GAME END & VICTORY
+           =================================================================== */
+        function endGame(allCompleted) {
+            gameState.isGameOver = true;
+            stopGameTimer();
+            playSound('win');
+
+            // Find top team
+            const sorted = [...gameState.teams].sort((a, b) => b.score - a.score);
+            const winner = sorted[0] || { name: 'Players', score: 0 };
+
+            document.getElementById('winner-name').textContent = winner.name;
+            document.getElementById('winner-score').textContent = `Final Score: ${winner.score} pts`;
+
+            if (allCompleted) {
+                document.getElementById('results-subtitle').textContent = "🌟 Fantastic job! All moving words were correctly classified!";
+            } else {
+                document.getElementById('results-subtitle').textContent = "⏰ Time expired! Here are the final scores for this round.";
+            }
+
+            // Build Standings
+            const listEl = document.getElementById('final-standings-list');
+            listEl.innerHTML = '';
+            sorted.forEach((team, idx) => {
+                const row = document.createElement('div');
+                row.className = 'flex justify-between items-center p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-sm font-bold';
+                row.innerHTML = `
+                    <div class="flex items-center gap-2">
+                        <span class="w-6 text-center font-display">${idx === 0 ? '🥇' : idx === 1 ? '🥈' : '🥉'}</span>
+                        <span class="text-slate-800">${team.name}</span>
+                    </div>
+                    <div class="text-right">
+                        <span class="text-emerald-600 font-black">${team.score} pts</span>
+                        <span class="text-xs text-slate-400 font-normal ml-2">(${team.errors} errors)</span>
+                    </div>
+                `;
+                listEl.appendChild(row);
+            });
+
+            switchView('results');
+        }
+
+        /* ===================================================================
+           TOAST NOTIFICATION SYSTEM
+           =================================================================== */
+        let toastTimeout = null;
+        function showToast(msg, icon = "✨", bgColorClass = "bg-slate-900") {
+            if (toastTimeout) clearTimeout(toastTimeout);
+
+            DOM.toastMsg.textContent = msg;
+            DOM.toastIcon.textContent = icon;
+            
+            DOM.toastContent.className = `${bgColorClass} text-white font-display font-bold px-6 py-3 rounded-2xl shadow-2xl border-2 border-white flex items-center gap-2 text-base`;
+
+            DOM.toast.classList.remove('opacity-0', 'translate-y-4');
+            DOM.toast.classList.add('opacity-100', 'translate-y-0');
+
+            toastTimeout = setTimeout(() => {
+                DOM.toast.classList.remove('opacity-100', 'translate-y-0');
+                DOM.toast.classList.add('opacity-0', 'translate-y-4');
+            }, 2000);
+        }
+    </script>
+</body>
+</html>
